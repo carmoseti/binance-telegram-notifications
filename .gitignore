@@ -1,0 +1,6 @@
+.idea/
+dist/
+node_modules/
+errors.log
+events.log
+.env
