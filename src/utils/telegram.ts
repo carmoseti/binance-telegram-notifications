@@ -12,7 +12,7 @@ export const startServiceNotification = () => {
     })
 }
 
-export const buySignalStrikeNotification = (symbol :string, price :number, strikeCount :number, strikeUnitPCT :number) => {
+export const buySignalStrikeNotification = (symbol :string, price :number, strikeCount :number, strikeUnitPCT :number, quoteAsset :string) => {
     const printPrice = price.toLocaleString(['en-UK','en-US'],{
         maximumFractionDigits: 10,
     })
@@ -21,7 +21,7 @@ export const buySignalStrikeNotification = (symbol :string, price :number, strik
 
     axios.post(`${process.env.TELEGRAM_API_URL}/${process.env.TELEGRAM_BOT_TOKEN_SECRET}/sendMessage`, {
         chat_id: process.env.TELEGRAM_BOT_CHAT_ID,
-        text: `${process.env.USER_NAME}, Checkout this trading pair => <b>${symbol.toUpperCase()}</b> currently at price <b>${printPrice} USDT</b>. It could be PUMPING!!! Strike count => ${strikeCount}. Percentage increase => ${printStrikePCT}%`,
+        text: `${process.env.USER_NAME}, Checkout this trading pair => <b>${symbol.toUpperCase()}</b> currently at price <b>${printPrice} ${quoteAsset}</b>. It could be PUMPING!!! Strike count => ${strikeCount}. Percentage increase => ${printStrikePCT}%`,
         parse_mode: "HTML"
     }, {
         headers: {

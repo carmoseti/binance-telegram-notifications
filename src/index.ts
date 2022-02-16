@@ -24,6 +24,9 @@ const getBaseAssetName = (tradingPair: string) => {
     });
     return baseAssetName;
 }
+const getQuoteAssetName = (tradingPair: string) => {
+    return tradingPair.replace(getBaseAssetName(tradingPair), '')
+}
 const hasSupportedQuoteAsset = (tradingPair: string): boolean => {
     return SUPPORTED_QUOTE_ASSETS.reduce((previousValue, currentValue) => {
         return previousValue || (tradingPair.search(currentValue) !== -1 && tradingPair.endsWith(currentValue))
@@ -51,6 +54,8 @@ const runIndividualSymbolTickerStream = (symbol: string,
     let notificationStrikeCount: number = previous ? previous.notificationStrikeCount : 0;
     let notificationStrikeTimeoutId: NodeJS.Timeout = previous ? previous.notificationStrikeTimeoutId : undefined;
     let notificationStrikeUnitPrice: number = previous ? previous.notificationStrikeUnitPrice : 0;
+
+    const quoteAsset: string = getQuoteAssetName(symbol)
 
     tryCatchFinallyUtil(
         () => {
@@ -104,7 +109,7 @@ const runIndividualSymbolTickerStream = (symbol: string,
                                 notificationStrikeUnitPrice = fixDecimalPlaces((notificationBuyPrice * Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT)) / (1.00 + Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT)), 12);
                             }
 
-                            if (notificationStrikeCount > 1) buySignalStrikeNotification(symbol, Number(Data.p), notificationStrikeCount, Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT));
+                            if (notificationStrikeCount > 1) buySignalStrikeNotification(symbol, Number(Data.p), notificationStrikeCount, Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT), quoteAsset);
 
                             if (notificationStrikeTimeoutId) clearTimeout(notificationStrikeTimeoutId);
                             notificationStrikeTimeoutId = setTimeout(
