@@ -11,6 +11,14 @@ config();
 const SUPPORTED_QUOTE_ASSETS: string[] = String(process.env.BINANCE_QUOTE_ASSETS).split(",");
 const getBaseAssetName = (tradingPair: string) => {
     let baseAssetName: string = tradingPair;
+
+    // tslint:disable-next-line:prefer-for-of
+    for (let i = 0; i < SUPPORTED_QUOTE_ASSETS.length; i++) {
+        if (tradingPair.startsWith(SUPPORTED_QUOTE_ASSETS[i])) {
+            return SUPPORTED_QUOTE_ASSETS[i];
+        }
+    }
+
     SUPPORTED_QUOTE_ASSETS.forEach((quoteAsset: string) => {
         baseAssetName = baseAssetName.replace(quoteAsset, '')
     });
@@ -162,14 +170,14 @@ const initializeSymbols = () => {
     const ws = new Websocket(`${process.env.BINANCE_WEBSOCKET_URL}/ws/!ticker@arr`);
 
     const timeout: NodeJS.Timeout = setTimeout(() => {
-        Object.keys(SYMBOLS).forEach((symbol) => {
-            const baseAssetName: string = getBaseAssetName(symbol);
-
+        let symbolKeys: string[] = Object.keys(SYMBOLS);
+        // tslint:disable-next-line:prefer-for-of
+        for (let a = 0; a < symbolKeys.length; a++) {
+            const baseAssetName: string = getBaseAssetName(symbolKeys[a]);
             for (let i = 0; i < SUPPORTED_QUOTE_ASSETS.length; i++) {
                 const tradingPair: string = `${baseAssetName}${SUPPORTED_QUOTE_ASSETS[i]}`
-
                 if (SYMBOLS.hasOwnProperty(tradingPair)) {
-                    const discardQuoteAssets: string[] = SUPPORTED_QUOTE_ASSETS.slice(i)
+                    const discardQuoteAssets: string[] = SUPPORTED_QUOTE_ASSETS.slice(i + 1)
                     discardQuoteAssets.forEach((value) => {
                         delete SYMBOLS[`${baseAssetName}${value}`];
 
@@ -182,7 +190,8 @@ const initializeSymbols = () => {
                     })
                 }
             }
-        });
+            symbolKeys = Object.keys(SYMBOLS);
+        }
 
         Object.keys(SYMBOLS).forEach((symbol) => {
             if (!WEBSOCKET_SYMBOL_CONNECTIONS[symbol]) {
