@@ -1,7 +1,7 @@
 # Binance Telegram Notifications
 
 ## Introduction
-A Node Typescript application that notifies user via Telegram quick market moves (pumps) at [Binance Exchange](https://www.binance.com/en/markets)
+A Node Typescript application that notifies user via Telegram quick market moves (pumps) at [Binance Exchange](https://accounts.binance.com/en/register?ref=35989968)
 
 ## Setup
 Documentation in progress...
