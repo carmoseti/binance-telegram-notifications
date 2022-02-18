@@ -7,8 +7,20 @@
     "build": "tsc",
     "main": "tsc && node dist/index.js"
   },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com:carmoseti/binance-telegram-notifications.git"
+  },
+  "keywords": [
+    "Binance",
+    "Crypto"
+  ],
   "author": "Carlton Moseti",
   "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/carmoseti/binance-telegram-notifications/issues"
+  },
+  "homepage": "https://github.com/carmoseti/binance-telegram-notifications#readme",
   "devDependencies": {
     "@types/ws": "^7.4.7",
     "tslint": "^6.1.3",
