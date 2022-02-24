@@ -14,7 +14,7 @@ export const startServiceNotification = () => {
 
 export const buySignalStrikeNotification = (symbol :string, price :number, strikeCount :number, strikeUnitPCT :number, quoteAsset :string) => {
     const printPrice = price.toLocaleString(['en-UK','en-US'],{
-        maximumFractionDigits: 10,
+        maximumFractionDigits: 20,
     })
 
     const printStrikePCT :number = Math.floor(strikeUnitPCT * strikeCount * 100);
