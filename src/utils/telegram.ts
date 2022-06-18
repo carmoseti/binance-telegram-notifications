@@ -33,7 +33,7 @@ export const buySignalStrikeNotification = (symbol :string, price :number, strik
 export const sendApeInNotification = (symbol :string, percentageChange :number) => {
     axios.post(`${process.env.TELEGRAM_API_URL}/${process.env.TELEGRAM_APE_IN_BOT_TOKEN_SECRET}/sendMessage`, {
         chat_id: process.env.TELEGRAM_BOT_CHAT_ID,
-        text: `&#128161; Hello ${process.env.USER_NAME}\n\nCheckout <b>${symbol}</b> currently with percentage change: <b>${percentageChange}%</b> in the last 24hrs`,
+        text: `&#128161; BINANCE\n\nHello ${process.env.USER_NAME}\nCheckout <b>${symbol}</b> currently with percentage change: <b>${percentageChange}%</b> in the last 24hrs`,
         parse_mode: "HTML"
     }, {
         headers: {
