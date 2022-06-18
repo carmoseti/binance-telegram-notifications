@@ -2,9 +2,8 @@ import Websocket from "ws"
 import {tryCatchFinallyUtil} from "./utils/error"
 import {logError} from "./utils/log"
 import {fixDecimalPlaces} from "./utils/number"
-import {buySignalStrikeNotification, startServiceNotification} from "./utils/telegram"
+import {buySignalStrikeNotification, sendApeInNotification, startServiceNotification} from "./utils/telegram"
 import {config} from "dotenv"
-import {sendApeInEmail} from "./utils/email"
 
 // Load .env properties
 config()
@@ -293,7 +292,7 @@ const APE_IN_SYMBOLS: {
         timeoutId: NodeJS.Timeout
     }
 } = {}
-const apeInEmailService = () => {
+const apeInService = () => {
     const ws = new Websocket(`${process.env.BINANCE_WEBSOCKET_URL}/ws/!ticker@arr`)
 
     tryCatchFinallyUtil(
@@ -332,8 +331,8 @@ const apeInEmailService = () => {
                             if (APE_IN_SYMBOLS[symbol.s]) {
                                 const apeInParameters = APE_IN_SYMBOLS[symbol.s]
                                 if (Number(symbol.P) < apeInParameters.percentage) {
-                                    // Send email notification
-                                    sendApeInEmail(symbol.s, Number(symbol.P))
+                                    // Send notification
+                                    sendApeInNotification(symbol.s, Number(symbol.P))
 
                                     // Set next percentage
                                     apeInParameters.percentage = apeInParameters.percentage + Number(process.env.APE_IN_INCREMENT_PERCENTAGE)
@@ -361,7 +360,7 @@ const apeInEmailService = () => {
                 clearPingTimeoutId()
 
                 if (code === 1006) { // ws.terminate()
-                    apeInEmailService()
+                    apeInService()
                 }
             }))
 
@@ -389,4 +388,4 @@ setInterval(() => {
     })
 }, 1000 * 60 * 60 * Number(process.env.BINANCE_WEBSOCKET_FORCE_TERMINATE_HRS)) // Every 24hrs force terminate all websocket connections
 
-apeInEmailService()
+apeInService()
