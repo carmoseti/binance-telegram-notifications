@@ -3,10 +3,10 @@ export const tryCatchFinallyUtil = (fnTry = () => {
 }, fnFinally = () => {
 }) => {
     try {
-        fnTry();
+        fnTry()
     } catch (e) {
-        fnCatch(e);
+        fnCatch(e)
     } finally {
-        fnFinally();
+        fnFinally()
     }
 }

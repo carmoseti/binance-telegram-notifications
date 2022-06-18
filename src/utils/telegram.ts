@@ -1,4 +1,4 @@
-import axios from "axios";
+import axios from "axios"
 
 export const startServiceNotification = () => {
     axios.post(`${process.env.TELEGRAM_API_URL}/${process.env.TELEGRAM_BOT_TOKEN_SECRET}/sendMessage`, {
@@ -17,7 +17,7 @@ export const buySignalStrikeNotification = (symbol :string, price :number, strik
         maximumFractionDigits: 20,
     })
 
-    const printStrikePCT :number = Math.floor(strikeUnitPCT * strikeCount * 100);
+    const printStrikePCT :number = Math.floor(strikeUnitPCT * strikeCount * 100)
 
     axios.post(`${process.env.TELEGRAM_API_URL}/${process.env.TELEGRAM_BOT_TOKEN_SECRET}/sendMessage`, {
         chat_id: process.env.TELEGRAM_BOT_CHAT_ID,
