@@ -333,7 +333,7 @@ const apeInService = () => {
                                 const percentChange :number = Math.round(((Number(Data.c) - Number(Data.h))/Number(Data.h)) * 10000) / 100
                                 if (percentChange < apeInParameters.percentage) {
                                     // Send notification
-                                    sendApeInNotification(symbol.s, Number(symbol.P))
+                                    sendApeInNotification(symbol.s, percentChange)
 
                                     // Set next percentage
                                     apeInParameters.percentage = apeInParameters.percentage + Number(process.env.APE_IN_INCREMENT_PERCENTAGE)
