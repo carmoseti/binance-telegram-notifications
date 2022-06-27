@@ -330,7 +330,8 @@ const apeInService = () => {
                         for (const symbol of Data) {
                             if (APE_IN_SYMBOLS[symbol.s]) {
                                 const apeInParameters = APE_IN_SYMBOLS[symbol.s]
-                                if (Number(symbol.P) < apeInParameters.percentage) {
+                                const percentChange :number = Math.round(((Number(Data.c) - Number(Data.h))/Number(Data.h)) * 10000) / 100
+                                if (percentChange < apeInParameters.percentage) {
                                     // Send notification
                                     sendApeInNotification(symbol.s, Number(symbol.P))
 
