@@ -330,8 +330,10 @@ const apeInService = () => {
                         for (const symbol of Data) {
                             if (APE_IN_SYMBOLS[symbol.s]) {
                                 const apeInParameters = APE_IN_SYMBOLS[symbol.s]
-                                const percentChange :number = Math.round(((Number(symbol.c) - Number(symbol.h))/Number(symbol.h)) * 10000) / 100
-                                if (percentChange < apeInParameters.percentage) {
+                                const percentChange: number = Math.round(((Number(symbol.c) - Number(symbol.h)) / Number(symbol.h)) * 10000) / 100
+                                if ((percentChange < apeInParameters.percentage) &&
+                                    // Avoid false -100% notifications from new-listings
+                                    percentChange !== 100) {
                                     // Send notification
                                     sendApeInNotification(symbol.s, percentChange)
 
