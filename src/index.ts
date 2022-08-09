@@ -29,13 +29,7 @@ const runIndividualSymbolTickerStream = (symbol: string,
                                              notificationStrikeCount: number
                                              notificationStrikeTimeoutId: NodeJS.Timeout
                                              notificationStrikeUnitPrice: number
-                                             errorRetryCount: number
                                          }) => {
-    let errorRetryCount: number = previous ? previous.errorRetryCount : 0
-    if (errorRetryCount > Number(process.env.BINANCE_WEBSOCKET_ERROR_MAX_RETRY_COUNT)) {
-        return false
-    }
-
     const ws = new Websocket(`${process.env.BINANCE_WEBSOCKET_URL}/ws/${symbol.toLowerCase()}@trade`)
     WEBSOCKET_SYMBOL_CONNECTIONS[symbol] = ws
 
@@ -59,11 +53,10 @@ const runIndividualSymbolTickerStream = (symbol: string,
                 clearPingTimeoutId()
                 pingTimeoutId = setTimeout(() => {
                     websocket.terminate()
-                }, Number(process.env.BINANCE_WEBSOCKET_PING_TIME_MS) + 30000) as NodeJS.Timeout
+                }, Number(process.env.BINANCE_WEBSOCKET_PING_TIME_MS)) as NodeJS.Timeout
             }
 
             ws.on('open', () => {
-                errorRetryCount = 0
                 heartBeat(ws)
             })
 
@@ -125,20 +118,18 @@ const runIndividualSymbolTickerStream = (symbol: string,
                 clearPingTimeoutId()
 
                 if (WEBSOCKET_SYMBOL_CONNECTIONS[symbol]) {
+                    WEBSOCKET_SYMBOL_CONNECTIONS[symbol] = undefined
                     delete WEBSOCKET_SYMBOL_CONNECTIONS[symbol]
 
-                    if (code === 1006) { // ws.terminate()
-                        runIndividualSymbolTickerStream(symbol, {
-                            notificationBuyPrice,
-                            notificationStrikeCount,
-                            notificationStrikeTimeoutId,
-                            notificationStrikeUnitPrice,
-                            errorRetryCount
-                        })
-                    }
-                    if (code === 1005) { // ws.close()
-                        runIndividualSymbolTickerStream(symbol)
-                    }
+                    clearTimeout(notificationStrikeTimeoutId)
+                    notificationStrikeTimeoutId = undefined
+
+                    runIndividualSymbolTickerStream(symbol, {
+                        notificationBuyPrice,
+                        notificationStrikeCount,
+                        notificationStrikeTimeoutId,
+                        notificationStrikeUnitPrice,
+                    })
                     // tslint:disable-next-line:no-empty
                 } else {
                 }
@@ -146,13 +137,11 @@ const runIndividualSymbolTickerStream = (symbol: string,
             }))
 
             ws.on('error', (error => {
-                errorRetryCount++
                 ws.terminate()
                 logError(`runIndividualSymbolTickerStream() web socket error : ${error}`)
             }))
         },
         (e) => {
-            errorRetryCount++
             ws.terminate()
             logError(`runIndividualSymbolTickerStream() error : ${e}`)
         }
@@ -161,9 +150,9 @@ const runIndividualSymbolTickerStream = (symbol: string,
 
 const SYMBOLS: { [symbol: string]: string } = {}
 const initializeSymbols = () => {
-    const ws = new Websocket(`${process.env.BINANCE_WEBSOCKET_URL}/ws/!ticker@arr`)
+    let ws = new Websocket(`${process.env.BINANCE_WEBSOCKET_URL}/ws/!ticker@arr`)
 
-    const timeout: NodeJS.Timeout = setTimeout(() => {
+    let timeout: NodeJS.Timeout = setTimeout(() => {
         let symbolKeys: string[] = Object.keys(SYMBOLS)
         // tslint:disable-next-line:prefer-for-of
         for (let a = 0; a < symbolKeys.length; a++) {
@@ -221,7 +210,7 @@ const initializeSymbols = () => {
                 clearPingTimeoutId()
                 pingTimeoutId = setTimeout(() => {
                     websocket.terminate()
-                }, Number(process.env.BINANCE_WEBSOCKET_PING_TIME_MS) + 30000) as NodeJS.Timeout
+                }, Number(process.env.BINANCE_WEBSOCKET_PING_TIME_MS)) as NodeJS.Timeout
             }
 
             ws.on('open', () => {
@@ -263,7 +252,11 @@ const initializeSymbols = () => {
             ws.on('close', ((code, reason) => {
                 clearPingTimeoutId()
                 clearTimeout(timeout)
-                if (code === 1006) { // ws.terminate()
+                timeout = undefined
+                ws = undefined
+
+                // Restart the service if ws.terminate()
+                if (code === 1006) {
                     initializeSymbols()
                 }
             }))
@@ -282,7 +275,7 @@ const APE_IN_SYMBOLS: {
     }
 } = {}
 const apeInService = () => {
-    const ws = new Websocket(`${process.env.BINANCE_WEBSOCKET_URL}/ws/!ticker@arr`)
+    let ws = new Websocket(`${process.env.BINANCE_WEBSOCKET_URL}/ws/!ticker@arr`)
 
     tryCatchFinallyUtil(
         () => {
@@ -297,7 +290,7 @@ const apeInService = () => {
                 clearPingTimeoutId()
                 pingTimeoutId = setTimeout(() => {
                     websocket.terminate()
-                }, Number(process.env.BINANCE_WEBSOCKET_PING_TIME_MS) + 30000) as NodeJS.Timeout
+                }, Number(process.env.BINANCE_WEBSOCKET_PING_TIME_MS)) as NodeJS.Timeout
             }
 
             ws.on('open', () => {
@@ -344,25 +337,25 @@ const apeInService = () => {
                     },
                     (e) => {
                         ws.terminate()
-                        logError(`apeInEmailService() error : ${e}`)
+                        logError(`apeInService() message error : ${e}`)
                     })
             })
 
             ws.on('close', ((code, reason) => {
                 clearPingTimeoutId()
+                ws = undefined
 
-                if (code === 1006) { // ws.terminate()
-                    apeInService()
-                }
+                // Restart the service
+                apeInService()
             }))
 
             ws.on('error', (error => {
                 ws.terminate()
-                logError(`apeInEmailService() web socket error : ${error}`)
+                logError(`apeInService() web socket error : ${error}`)
             }))
         }, (e) => {
             ws.terminate()
-            logError(`apeInEmailService() error : ${e}`)
+            logError(`apeInService() error : ${e}`)
         })
 }
 
@@ -373,11 +366,5 @@ initializeSymbols()
 setInterval(() => {
     initializeSymbols()
 }, 1000 * 60 * Number(process.env.BINANCE_SYMBOL_UPDATE_INTERVAL_MINS)) // Every 10min update our symbols. Incase of new listings.
-
-setInterval(() => {
-    Object.keys(WEBSOCKET_SYMBOL_CONNECTIONS).forEach((symbol) => {
-        WEBSOCKET_SYMBOL_CONNECTIONS[symbol].terminate()
-    })
-}, 1000 * 60 * 60 * Number(process.env.BINANCE_WEBSOCKET_FORCE_TERMINATE_HRS)) // Every 24hrs force terminate all websocket connections
 
 apeInService()
