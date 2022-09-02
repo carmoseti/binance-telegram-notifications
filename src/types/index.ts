@@ -76,23 +76,20 @@ export type BinanceWebSocketTickerArrStreamResponse = Array<{
     "n": number          // Total number of trades
 }>
 
-export type RGTraderBinanceWebSocketConnections = {
+export type BinanceTelegramWebSocketConnections = {
     [id: string]: {
         webSocket: WebSocket
         numberOfActiveSubscriptions: number
     }
 }
 
-export type RGTickerProfile = 'R' | 'G'
-export type RGTickerProfileArray = [RGTickerProfile | undefined, RGTickerProfile | undefined, RGTickerProfile | undefined]
-
-export type RGTraderBinanceSymbols = {
+export type BinanceTelegramSymbols = {
     [baseCurrency: string]: {
         [quoteCurrency: string]: BinanceSymbolsResponse["symbols"][0]
     }
 }
 
-export type RGTraderTradingPairs = Record<string, {
+export type BinanceTelegramTradingPairs = Record<string, {
     webSocketConnectionId: string
     symbol: string
     baseCurrency: string

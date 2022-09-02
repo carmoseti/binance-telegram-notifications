@@ -7,7 +7,6 @@ declare global {
             BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT :string
             BINANCE_NOTIFICATIONS_STRIKE_TIMEOUT_MINS :string
             BINANCE_SYMBOL_UPDATE_INTERVAL_MINS :string
-            BINANCE_WEBSOCKET_PING_TIME_MS :string
             BINANCE_WEBSOCKET_URL :string
             BINANCE_REST_BASE_URL :string
             BINANCE_MAX_SUBSCRIPTIONS_PER_WEB_SOCKET :string
