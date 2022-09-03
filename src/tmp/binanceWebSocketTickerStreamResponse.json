@@ -1,0 +1,28 @@
+{
+  "stream": "ethusdt@ticker",
+  "data": {
+    "e": "24hrTicker",     // Event type
+    "E": 1662223620938,     // Event time
+    "s": "ETHUSDT",     // Symbol
+    "p": "-63.51000000",     // Price change
+    "P": "-3.927",     // Price change percent
+    "w": "1568.14254893",     // Weighted average price
+    "x": "1617.36000000",     // First trade(F)-1 price (first trade before the 24hr rolling window)
+    "c": "1553.84000000",     // Last price
+    "Q": "0.03080000",     // Last quantity
+    "b": "1553.84000000",     // Best bid price
+    "B": "38.01640000",     // Best bid quantity
+    "a": "1553.85000000",     // Best ask price
+    "A": "1.20100000",     // Best ask quantity
+    "o": "1617.35000000",     // Open price
+    "h": "1617.35000000",     // High price
+    "l": "1534.28000000",     // Low price
+    "v": "507895.23880000",     // Total traded base asset volume
+    "q": "796452134.36051700",     // Total traded quote asset volume
+    "O": 1662137220755,     // Statistics open time
+    "C": 1662223620755,     // Statistics close time
+    "F": 954015850,     // First trade ID
+    "L": 954798912,     // Last trade Id
+    "n": 783063     // Total number of trades
+  }
+}

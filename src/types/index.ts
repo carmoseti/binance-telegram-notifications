@@ -37,43 +37,59 @@ export type BinanceWebSocketTradeStreamResponse = {
     result?: null
     stream?: string
     data?: {
-        e: "trade"     // Event type
+        e: "trade" | "24hrTicker"     // Event type
         E: string   // Event time
         s: string    // Symbol
         t: number       // Trade ID
-        p: string     // Price
-        q: string       // Quantity
-        b: number          // Buyer order ID
-        a: number          // Seller order ID
+        p: string     // Price or Price change
+        q: string       // Quantity or Total traded quote asset volume
+        b: number          // Buyer order ID or Best bid price
+        a: number          // Seller order ID or Best ask price
         T: number   // Trade time
         m: boolean        // Is the buyer the market maker?
         M: boolean         // Ignore
+        P: string      // Price change percent
+        w: string      // Weighted average price
+        x: string      // First trade(F)-1 price (first trade before the 24hr rolling window)
+        c: string      // Last price
+        Q: string          // Last quantity
+        B: string          // Best bid quantity
+        A: string         // Best ask quantity
+        o: string      // Open price
+        h: string      // High price
+        l: string      // Low price
+        v: string       // Total traded base asset volume
+        O: number             // Statistics open time
+        C: number      // Statistics close time
+        F: number             // First trade ID
+        L: number         // Last trade Id
+        n: number          // Total number of trades
     }
 }
 export type BinanceWebSocketTickerArrStreamResponse = Array<{
-    "e": "24hrTicker",  // Event type
-    "E": number     // Event time
-    "s": string      // Symbol
-    "p": string      // Price change
-    "P": string      // Price change percent
-    "w": string      // Weighted average price
-    "x": string      // First trade(F)-1 price (first trade before the 24hr rolling window)
-    "c": string      // Last price
-    "Q": string          // Last quantity
-    "b": string      // Best bid price
-    "B": string          // Best bid quantity
-    "a": string      // Best ask price
-    "A": string         // Best ask quantity
-    "o": string      // Open price
-    "h": string      // High price
-    "l": string      // Low price
-    "v": string       // Total traded base asset volume
-    "q": string          // Total traded quote asset volume
-    "O": number             // Statistics open time
-    "C": number      // Statistics close time
-    "F": number             // First trade ID
-    "L": number         // Last trade Id
-    "n": number          // Total number of trades
+    e: "24hrTicker",  // Event type
+    E: number     // Event time
+    s: string      // Symbol
+    p: string      // Price change
+    P: string      // Price change percent
+    w: string      // Weighted average price
+    x: string      // First trade(F)-1 price (first trade before the 24hr rolling window)
+    c: string      // Last price
+    Q: string          // Last quantity
+    b: string      // Best bid price
+    B: string          // Best bid quantity
+    a: string      // Best ask price
+    A: string         // Best ask quantity
+    o: string      // Open price
+    h: string      // High price
+    l: string      // Low price
+    v: string       // Total traded base asset volume
+    q: string          // Total traded quote asset volume
+    O: number             // Statistics open time
+    C: number      // Statistics close time
+    F: number             // First trade ID
+    L: number         // Last trade Id
+    n: number          // Total number of trades
 }>
 
 export type BinanceTelegramWebSocketConnections = {
@@ -96,10 +112,14 @@ export type BinanceTelegramTradingPairs = Record<string, {
     quoteCurrency: string
     baseDecimalPlaces: number
     quoteDecimalPlaces: number
-    subscriptionAckInterval: NodeJS.Timeout
-    unsubscriptionAckInterval: NodeJS.Timeout
+    tradeStreamSubscriptionAckInterval: NodeJS.Timeout
+    tradeStreamUnsubscriptionAckInterval: NodeJS.Timeout
+    tickerStreamSubscriptionAckInterval: NodeJS.Timeout
+    tickerStreamUnsubscriptionAckInterval: NodeJS.Timeout
     notificationStrikeCount: number
     notificationBuyPrice: number
     notificationStrikeUnitPrice: number
     notificationStrikeTimeoutId: NodeJS.Timeout
+    apeInPercentage :number
+    apeInTimeoutId :NodeJS.Timeout
 }>

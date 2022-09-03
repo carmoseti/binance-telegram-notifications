@@ -20,23 +20,20 @@ config()
 let BINANCE_TELEGRAM_WEB_SOCKET_CONNECTIONS: BinanceTelegramWebSocketConnections = {}
 let BINANCE_TELEGRAM_SYMBOLS: BinanceTelegramSymbols = {}
 let BINANCE_TELEGRAM_TRADING_PAIRS: BinanceTelegramTradingPairs = {}
-let BINANCE_TELEGRAM_SUBSCRIPTIONS_TRACKER: Record<number, string> = {}
-let BINANCE_TELEGRAM_UNSUBSCRIPTIONS_TRACKER: Record<number, string> = {}
+let BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER: Record<number, string> = {}
+let BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER: Record<number, string> = {}
+let BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER: Record<number, string> = {}
+let BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER: Record<number, string> = {}
 let BINANCE_TELEGRAM_GET_SYMBOLS_INTERVAL_ID: NodeJS.Timeout
-let BINANCE_TELEGRAM_APE_IN_SYMBOLS: {
-    [symbol: string]: {
-        percentage: number
-        timeoutId: NodeJS.Timeout
-    }
-} = {}
 
 const resetRun = () => {
     BINANCE_TELEGRAM_WEB_SOCKET_CONNECTIONS = {}
     BINANCE_TELEGRAM_SYMBOLS = {}
     BINANCE_TELEGRAM_TRADING_PAIRS = {}
-    BINANCE_TELEGRAM_SUBSCRIPTIONS_TRACKER = {}
-    BINANCE_TELEGRAM_UNSUBSCRIPTIONS_TRACKER = {}
-    BINANCE_TELEGRAM_APE_IN_SYMBOLS = {}
+    BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER = {}
+    BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER = {}
+    BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER = {}
+    BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER = {}
 
     clearInterval(BINANCE_TELEGRAM_GET_SYMBOLS_INTERVAL_ID)
     run()
@@ -140,7 +137,7 @@ const getSymbolsData = () => {
 const processTradingPairs = (newSubscribeSymbols ?: BinanceTelegramSymbols, unsubscribeSymbols ?: BinanceTelegramSymbols) => {
     tryCatchFinallyUtil(async () => {
         const markets: string[] = `${process.env.BINANCE_QUOTE_ASSETS}`.split(",")
-        const maximumWebSocketSubscriptions: number = Number(`${process.env.BINANCE_MAX_SUBSCRIPTIONS_PER_WEB_SOCKET}`)
+        const maximumWebSocketSubscriptions: number = Number(`${process.env.BINANCE_MAX_SUBSCRIPTIONS_PER_WEB_SOCKET}`) / 2
         const rgBinanceSymbolEntries = Object.entries(BINANCE_TELEGRAM_SYMBOLS)
         for (let a = 0; a < markets.length; a++) {
             const quoteCurrency: string = markets[a]
@@ -157,16 +154,16 @@ const processTradingPairs = (newSubscribeSymbols ?: BinanceTelegramSymbols, unsu
                                 quoteCurrency,
                                 baseDecimalPlaces: tradePair.baseAssetPrecision,
                                 quoteDecimalPlaces: tradePair.quoteAssetPrecision,
-                                subscriptionAckInterval: undefined,
-                                unsubscriptionAckInterval: undefined,
+                                tradeStreamSubscriptionAckInterval: undefined,
+                                tradeStreamUnsubscriptionAckInterval: undefined,
+                                tickerStreamSubscriptionAckInterval: undefined,
+                                tickerStreamUnsubscriptionAckInterval: undefined,
                                 notificationStrikeCount: 0,
                                 notificationStrikeTimeoutId: undefined,
                                 notificationBuyPrice: 0,
-                                notificationStrikeUnitPrice: 0
-                            }
-                            BINANCE_TELEGRAM_APE_IN_SYMBOLS[tradePair.symbol] = {
-                                percentage: Number(process.env.APE_IN_START_PERCENTAGE),
-                                timeoutId: undefined
+                                notificationStrikeUnitPrice: 0,
+                                apeInPercentage: Number(process.env.APE_IN_START_PERCENTAGE),
+                                apeInTimeoutId: undefined
                             }
                         }
                     }
@@ -191,38 +188,50 @@ const processTradingPairs = (newSubscribeSymbols ?: BinanceTelegramSymbols, unsu
         else {
             const unsubscribeSymbolsEntries: [string, BinanceTelegramSymbols[""]][] = Object.entries(unsubscribeSymbols)
             if (unsubscribeSymbolsEntries.length > 0) {
-                const handleTradingPairUnsubscription = (webSocketConnectionId: string, baseCurrency: string, tradePair: BinanceTelegramTradingPairs[""]) => {
+                const handleTradingPairUnsubscription = (webSocketConnectionId: string, baseCurrency: string, tradePair: BinanceTelegramTradingPairs[""], streamType: 'ticker' | 'trade') => {
                     const unsubscriptionId: number = new Date().getTime()
                     const request = {
                         method: "UNSUBSCRIBE",
-                        params: [`${tradePair.symbol.toLowerCase()}@trade`],
+                        params: [`${tradePair.symbol.toLowerCase()}@${streamType}`],
                         id: unsubscriptionId
                     }
                     // Unsubscribe
                     BINANCE_TELEGRAM_WEB_SOCKET_CONNECTIONS[webSocketConnectionId].webSocket.send(JSON.stringify(request))
 
-                    BINANCE_TELEGRAM_UNSUBSCRIPTIONS_TRACKER[unsubscriptionId] = baseCurrency
+                    if (streamType === 'trade') BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[unsubscriptionId] = baseCurrency
+                    if (streamType === 'ticker') BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER[unsubscriptionId] = baseCurrency
                 }
 
                 for (let a = 0; a < unsubscribeSymbolsEntries.length; a++) {
                     const [baseCurrency] = unsubscribeSymbolsEntries[a]
                     const tradePair: BinanceTelegramTradingPairs[""] = BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency]
 
-                    handleTradingPairUnsubscription(tradePair.webSocketConnectionId, baseCurrency, tradePair)
+                    handleTradingPairUnsubscription(tradePair.webSocketConnectionId, baseCurrency, tradePair, 'trade')
 
-                    BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].unsubscriptionAckInterval = setInterval(() => {
-                        const previousUnsubscriptionId: number = Number(Object.entries(BINANCE_TELEGRAM_UNSUBSCRIPTIONS_TRACKER).filter(([_, v]) => v === baseCurrency)[0][0])
-                        delete BINANCE_TELEGRAM_UNSUBSCRIPTIONS_TRACKER[previousUnsubscriptionId]
+                    BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].tradeStreamUnsubscriptionAckInterval = setInterval(() => {
+                        const previousUnsubscriptionId: number = Number(Object.entries(BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER).filter(([_, v]) => v === baseCurrency)[0][0])
+                        delete BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[previousUnsubscriptionId]
 
-                        handleTradingPairUnsubscription(tradePair.webSocketConnectionId, baseCurrency, tradePair)
+                        handleTradingPairUnsubscription(tradePair.webSocketConnectionId, baseCurrency, tradePair, 'trade')
                     }, Math.floor(1000 / Number(process.env.BINANCE_MAX_JSON_MESSAGES_PER_SECOND)) * Object.entries(BINANCE_TELEGRAM_TRADING_PAIRS).length)
 
-                    if (BINANCE_TELEGRAM_APE_IN_SYMBOLS[tradePair.symbol]) {
-                        if (BINANCE_TELEGRAM_APE_IN_SYMBOLS[tradePair.symbol].timeoutId) {
-                            clearTimeout(BINANCE_TELEGRAM_APE_IN_SYMBOLS[tradePair.symbol].timeoutId)
-                        }
-                        delete BINANCE_TELEGRAM_APE_IN_SYMBOLS[tradePair.symbol]
-                    }
+                    await sleep(Math.floor(
+                        1000 / Number(process.env.BINANCE_MAX_JSON_MESSAGES_PER_SECOND)
+                    ))
+                }
+
+                for (let a = 0; a < unsubscribeSymbolsEntries.length; a++) {
+                    const [baseCurrency] = unsubscribeSymbolsEntries[a]
+                    const tradePair: BinanceTelegramTradingPairs[""] = BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency]
+
+                    handleTradingPairUnsubscription(tradePair.webSocketConnectionId, baseCurrency, tradePair, 'ticker')
+
+                    BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].tickerStreamUnsubscriptionAckInterval = setInterval(() => {
+                        const previousUnsubscriptionId: number = Number(Object.entries(BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER).filter(([_, v]) => v === baseCurrency)[0][0])
+                        delete BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER[previousUnsubscriptionId]
+
+                        handleTradingPairUnsubscription(tradePair.webSocketConnectionId, baseCurrency, tradePair, 'ticker')
+                    }, Math.floor(1000 / Number(process.env.BINANCE_MAX_JSON_MESSAGES_PER_SECOND)) * Object.entries(BINANCE_TELEGRAM_TRADING_PAIRS).length)
 
                     await sleep(Math.floor(
                         1000 / Number(process.env.BINANCE_MAX_JSON_MESSAGES_PER_SECOND)
@@ -241,13 +250,22 @@ const processTradingPairs = (newSubscribeSymbols ?: BinanceTelegramSymbols, unsu
                         for (let b = 0; b < websockets.length; b++) {
                             const [webSocketConnectionId, websocket] = websockets[b]
                             if (!(websocket.numberOfActiveSubscriptions === maximumWebSocketSubscriptions)) {
-                                const subscriptionId: number = new Date().getTime()
-                                const request = {
+                                let subscriptionId: number = new Date().getTime()
+                                let request = {
                                     method: "SUBSCRIBE",
                                     params: [`${tradePair.symbol.toLowerCase()}@trade`],
                                     id: subscriptionId
                                 }
-                                // Subscribe
+                                // Subscribe - trade stream
+                                BINANCE_TELEGRAM_WEB_SOCKET_CONNECTIONS[webSocketConnectionId].webSocket.send(JSON.stringify(request))
+
+                                subscriptionId = new Date().getTime()
+                                request = {
+                                    method: "SUBSCRIBE",
+                                    params: [`${tradePair.symbol.toLowerCase()}@ticker`],
+                                    id: subscriptionId
+                                }
+                                // Subscribe - ticker stream
                                 BINANCE_TELEGRAM_WEB_SOCKET_CONNECTIONS[webSocketConnectionId].webSocket.send(JSON.stringify(request))
 
                                 BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].webSocketConnectionId = webSocketConnectionId
@@ -255,9 +273,7 @@ const processTradingPairs = (newSubscribeSymbols ?: BinanceTelegramSymbols, unsu
 
                                 delete newSubscribeSymbols[baseCurrency]
 
-                                await sleep(Math.floor(
-                                    1000 / Number(process.env.BINANCE_MAX_JSON_MESSAGES_PER_SECOND)
-                                ))
+                                await sleep(Math.floor(1000 / Number(process.env.BINANCE_MAX_JSON_MESSAGES_PER_SECOND)) * 3)
 
                                 break
                             }
@@ -297,17 +313,18 @@ const openWebSocketConnection = (rgTradingPairs: [string, BinanceTelegramTrading
             numberOfActiveSubscriptions: 0
         }
 
-        const handleTradingPairSubscription = (baseCurrency: string, tradingPair: BinanceTelegramTradingPairs[""]) => {
+        const handleTradingPairSubscription = (baseCurrency: string, tradingPair: BinanceTelegramTradingPairs[""], streamType: 'ticker' | 'trade') => {
             const subscriptionId: number = new Date().getTime()
             const request = {
                 method: "SUBSCRIBE",
-                params: [`${tradingPair.symbol.toLowerCase()}@trade`],
+                params: [`${tradingPair.symbol.toLowerCase()}@${streamType}`],
                 id: subscriptionId
             }
             // Subscribe
             webSocket.send(JSON.stringify(request))
 
-            BINANCE_TELEGRAM_SUBSCRIPTIONS_TRACKER[subscriptionId] = baseCurrency
+            if (streamType === 'trade') BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER[subscriptionId] = baseCurrency
+            if (streamType === 'ticker') BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER[subscriptionId] = baseCurrency
         }
 
         let pingTimeoutId: NodeJS.Timeout
@@ -338,15 +355,36 @@ const openWebSocketConnection = (rgTradingPairs: [string, BinanceTelegramTrading
                 const [baseCurrency, rgTradePair] = rgTradingPairs[a]
 
                 if (BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency]) {
-                    handleTradingPairSubscription(baseCurrency, rgTradePair)
+                    handleTradingPairSubscription(baseCurrency, rgTradePair, 'trade')
 
-                    BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].subscriptionAckInterval = setInterval(() => {
-                        if (Object.entries(BINANCE_TELEGRAM_SUBSCRIPTIONS_TRACKER).filter(([_, v]) => v === baseCurrency)[0]) {
-                            const previousSubscriptionId: number = Number(Object.entries(BINANCE_TELEGRAM_SUBSCRIPTIONS_TRACKER).filter(([_, v]) => v === baseCurrency)[0][0])
-                            delete BINANCE_TELEGRAM_SUBSCRIPTIONS_TRACKER[previousSubscriptionId]
+                    BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].tradeStreamSubscriptionAckInterval = setInterval(() => {
+                        if (Object.entries(BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER).filter(([_, v]) => v === baseCurrency)[0]) {
+                            const previousSubscriptionId: number = Number(Object.entries(BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER).filter(([_, v]) => v === baseCurrency)[0][0])
+                            delete BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER[previousSubscriptionId]
                         }
 
-                        handleTradingPairSubscription(baseCurrency, rgTradePair)
+                        handleTradingPairSubscription(baseCurrency, rgTradePair, 'trade')
+                    }, Math.floor(1000 / Number(process.env.BINANCE_MAX_JSON_MESSAGES_PER_SECOND)) * rgTradingPairs.length)
+
+                    await sleep(Math.floor(
+                        1000 / Number(process.env.BINANCE_MAX_JSON_MESSAGES_PER_SECOND)
+                    ))
+                }
+            }
+
+            for (let a = 0; a < rgTradingPairs.length; a++) {
+                const [baseCurrency, rgTradePair] = rgTradingPairs[a]
+
+                if (BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency]) {
+                    handleTradingPairSubscription(baseCurrency, rgTradePair, 'ticker')
+
+                    BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].tickerStreamSubscriptionAckInterval = setInterval(() => {
+                        if (Object.entries(BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER).filter(([_, v]) => v === baseCurrency)[0]) {
+                            const previousSubscriptionId: number = Number(Object.entries(BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER).filter(([_, v]) => v === baseCurrency)[0][0])
+                            delete BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER[previousSubscriptionId]
+                        }
+
+                        handleTradingPairSubscription(baseCurrency, rgTradePair, 'ticker')
                     }, Math.floor(1000 / Number(process.env.BINANCE_MAX_JSON_MESSAGES_PER_SECOND)) * rgTradingPairs.length)
 
                     await sleep(Math.floor(
@@ -360,59 +398,96 @@ const openWebSocketConnection = (rgTradingPairs: [string, BinanceTelegramTrading
             const response: BinanceWebSocketTradeStreamResponse = JSON.parse(data.toString())
             // Subscriptions and Unsubscriptions
             if (response.id && response.result === null) {
-                if (BINANCE_TELEGRAM_SUBSCRIPTIONS_TRACKER[response.id]) {
-                    BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_SUBSCRIPTIONS_TRACKER[response.id]].webSocketConnectionId = webSocketConnectionId
+                if (BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER[response.id]) {
+                    BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER[response.id]].webSocketConnectionId = webSocketConnectionId
                     BINANCE_TELEGRAM_WEB_SOCKET_CONNECTIONS[webSocketConnectionId].numberOfActiveSubscriptions += 1
 
-                    clearInterval(BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_SUBSCRIPTIONS_TRACKER[response.id]].subscriptionAckInterval)
-                    BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_SUBSCRIPTIONS_TRACKER[response.id]].subscriptionAckInterval = undefined
+                    clearInterval(BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER[response.id]].tradeStreamSubscriptionAckInterval)
+                    BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER[response.id]].tradeStreamSubscriptionAckInterval = undefined
                 }
 
-                if (BINANCE_TELEGRAM_UNSUBSCRIPTIONS_TRACKER[response.id]) {
+                if (BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]) {
                     BINANCE_TELEGRAM_WEB_SOCKET_CONNECTIONS[webSocketConnectionId].numberOfActiveSubscriptions -= 1
-                    clearInterval(BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_UNSUBSCRIPTIONS_TRACKER[response.id]].unsubscriptionAckInterval)
-                    BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_UNSUBSCRIPTIONS_TRACKER[response.id]].unsubscriptionAckInterval = undefined
+                    clearInterval(BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]].tradeStreamUnsubscriptionAckInterval)
+                    BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]].tradeStreamUnsubscriptionAckInterval = undefined
 
-                    delete BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_UNSUBSCRIPTIONS_TRACKER[response.id]]
+                    delete BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]]
+                }
+
+                if (BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER[response.id]) {
+                    clearInterval(BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER[response.id]].tickerStreamSubscriptionAckInterval)
+                    BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER[response.id]].tickerStreamSubscriptionAckInterval = undefined
+                }
+
+                if (BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]) {
+                    clearInterval(BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]].tickerStreamUnsubscriptionAckInterval)
+                    BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]].tickerStreamUnsubscriptionAckInterval = undefined
                 }
             }
             // Trades
             else {
+                console.log(JSON.stringify(response))
                 const tradingPair: BinanceTelegramTradingPairs[""] = (Object.entries(BINANCE_TELEGRAM_TRADING_PAIRS).filter(([_, v]) => v.symbol === response.data.s)[0] ?? [])[1]
                 if (tradingPair) {
                     const {baseCurrency, quoteCurrency} = tradingPair
-                    const newNotificationBuyPrice: number = tradingPair.notificationStrikeCount === 0 ?
-                        fixDecimalPlaces((1.00 + Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT)) * Number(response.data.p), tradingPair.quoteDecimalPlaces) :
-                        fixDecimalPlaces(tradingPair.notificationBuyPrice + tradingPair.notificationStrikeUnitPrice, tradingPair.quoteDecimalPlaces)
+                    if (response.data.e === "trade") {
+                        // Notification service
+                        const newNotificationBuyPrice: number = tradingPair.notificationStrikeCount === 0 ?
+                            fixDecimalPlaces((1.00 + Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT)) * Number(response.data.p), tradingPair.quoteDecimalPlaces) :
+                            fixDecimalPlaces(tradingPair.notificationBuyPrice + tradingPair.notificationStrikeUnitPrice, tradingPair.quoteDecimalPlaces)
 
-                    if (tradingPair.notificationBuyPrice) {
-                        if (newNotificationBuyPrice < tradingPair.notificationBuyPrice) {
+                        if (tradingPair.notificationBuyPrice) {
+                            if (newNotificationBuyPrice < tradingPair.notificationBuyPrice) {
+                                BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationBuyPrice = newNotificationBuyPrice
+                            }
+                        } else {
                             BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationBuyPrice = newNotificationBuyPrice
                         }
-                    } else {
-                        BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationBuyPrice = newNotificationBuyPrice
+
+                        if (Number(response.data.p) >= tradingPair.notificationBuyPrice && tradingPair.notificationBuyPrice !== 0) {
+                            BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount += 1
+                            if (BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount === 1) {
+                                BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeUnitPrice = fixDecimalPlaces((tradingPair.notificationBuyPrice * Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT)) / (1.00 + Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT)), tradingPair.quoteDecimalPlaces)
+                            }
+
+                            if (BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount > 1) buySignalStrikeNotification(response.data.s, fixDecimalPlaces(Number(response.data.p), tradingPair.quoteDecimalPlaces), BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount, Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT), quoteCurrency)
+
+                            if (tradingPair.notificationStrikeTimeoutId) clearTimeout(tradingPair.notificationStrikeTimeoutId)
+                            BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeTimeoutId = setTimeout(
+                                () => {
+                                    BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount = 0
+                                    BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationBuyPrice = 0
+                                    BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeUnitPrice = 0
+
+                                    clearTimeout(BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeTimeoutId)
+                                    BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeTimeoutId = undefined
+                                }, 1000 * 60 * Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_TIMEOUT_MINS) * BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount
+                            ) as NodeJS.Timeout
+                            BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationBuyPrice = BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationBuyPrice + BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeUnitPrice
+                        }
                     }
 
-                    if (Number(response.data.p) >= tradingPair.notificationBuyPrice && tradingPair.notificationBuyPrice !== 0) {
-                        BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount += 1
-                        if (BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount === 1) {
-                            BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeUnitPrice = fixDecimalPlaces((tradingPair.notificationBuyPrice * Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT)) / (1.00 + Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT)), tradingPair.quoteDecimalPlaces)
+                    if (response.data.e === "24hrTicker") {
+                        // APE IN service
+                        const percentChange: number = Math.round(((Number(response.data.c) - Number(response.data.h)) / Number(response.data.h)) * 10000) / 100
+                        /*console.log(`${response.data.s} => ${percentChange}`)*/
+                        if ((percentChange < tradingPair.apeInPercentage)) {
+                            // Send notification
+                            sendApeInNotification(response.data.s, percentChange)
+
+                            // Set next percentage
+                            BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].apeInPercentage = tradingPair.apeInPercentage + Number(process.env.APE_IN_INCREMENT_PERCENTAGE)
+                            if (tradingPair.apeInTimeoutId) {
+                                clearTimeout(tradingPair.apeInTimeoutId)
+                            }
+                            BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].apeInTimeoutId = setTimeout(() => {
+                                // Reset notification percentage
+                                BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].apeInPercentage = Number(process.env.APE_IN_START_PERCENTAGE)
+
+                                clearTimeout(BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].apeInTimeoutId)
+                                BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].apeInTimeoutId = undefined
+                            }, 1000 * 60 * 60 * Number(process.env.APE_IN_PERCENT_TIMEOUT_HRS))
                         }
-
-                        if (BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount > 1) buySignalStrikeNotification(response.data.s, fixDecimalPlaces(Number(response.data.p),tradingPair.quoteDecimalPlaces), BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount, Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_UNIT_PERCENT), quoteCurrency)
-
-                        if (tradingPair.notificationStrikeTimeoutId) clearTimeout(tradingPair.notificationStrikeTimeoutId)
-                        BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeTimeoutId = setTimeout(
-                            () => {
-                                BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount = 0
-                                BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationBuyPrice = 0
-                                BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeUnitPrice = 0
-
-                                clearTimeout(BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeTimeoutId)
-                                BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeTimeoutId = undefined
-                            }, 1000 * 60 * Number(process.env.BINANCE_NOTIFICATIONS_STRIKE_TIMEOUT_MINS) * BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeCount
-                        ) as NodeJS.Timeout
-                        BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationBuyPrice = BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationBuyPrice + BINANCE_TELEGRAM_TRADING_PAIRS[baseCurrency].notificationStrikeUnitPrice
                     }
                 }
             }
@@ -444,89 +519,6 @@ const openWebSocketConnection = (rgTradingPairs: [string, BinanceTelegramTrading
     })
 }
 
-const apeInService = () => {
-    let ws = new Websocket(`${process.env.BINANCE_WEBSOCKET_URL}/ws/!ticker@arr`)
-
-    tryCatchFinallyUtil(
-        () => {
-            let pingTimeoutId: NodeJS.Timeout
-            const clearPingTimeoutId = () => {
-                if (pingTimeoutId) {
-                    clearTimeout(pingTimeoutId)
-                    pingTimeoutId = undefined
-                }
-            }
-            const heartBeat = (websocket: WebSocket) => {
-                clearPingTimeoutId()
-                pingTimeoutId = setTimeout(() => {
-                    websocket.terminate()
-                }, Number(process.env.BINANCE_WEB_SOCKET_PING_TIMEOUT_MINS) * 60 * 1000) as NodeJS.Timeout
-            }
-
-            ws.on('open', () => {
-                heartBeat(ws)
-            })
-
-            ws.on('ping', () => {
-                // tslint:disable-next-line:no-empty
-                ws.pong(() => {
-                })
-                heartBeat(ws)
-            })
-
-            ws.on('message', (data: string) => {
-                tryCatchFinallyUtil(
-                    () => {
-                        const Data: BinanceWebSocketTickerArrStreamResponse = JSON.parse(data)
-
-                        for (const symbol of Data) {
-                            if (BINANCE_TELEGRAM_APE_IN_SYMBOLS[symbol.s]) {
-                                const apeInParameters = BINANCE_TELEGRAM_APE_IN_SYMBOLS[symbol.s]
-                                const percentChange: number = Math.round(((Number(symbol.c) - Number(symbol.h)) / Number(symbol.h)) * 10000) / 100
-                                if ((percentChange < apeInParameters.percentage)) {
-                                    // Send notification
-                                    sendApeInNotification(symbol.s, percentChange)
-
-                                    // Set next percentage
-                                    apeInParameters.percentage = apeInParameters.percentage + Number(process.env.APE_IN_INCREMENT_PERCENTAGE)
-                                    if (apeInParameters.timeoutId) {
-                                        clearTimeout(apeInParameters.timeoutId)
-                                    }
-                                    apeInParameters.timeoutId = setTimeout(() => {
-                                        // Reset notification percentage
-                                        apeInParameters.percentage = Number(process.env.APE_IN_START_PERCENTAGE)
-
-                                        clearTimeout(apeInParameters.timeoutId)
-                                        apeInParameters.timeoutId = undefined
-                                    }, 1000 * 60 * 60 * Number(process.env.APE_IN_PERCENT_TIMEOUT_HRS))
-                                }
-                            }
-                        }
-                    },
-                    (e) => {
-                        ws.terminate()
-                        logError(`apeInService.webSocket.message() - ${e}`)
-                    })
-            })
-
-            ws.on('close', ((code, reason) => {
-                clearPingTimeoutId()
-                ws = undefined
-
-                // Restart the service
-                apeInService()
-            }))
-
-            ws.on('error', (error => {
-                ws.terminate()
-                logError(`apeInService.webSocket.error() - ${error}`)
-            }))
-        }, (e) => {
-            ws.terminate()
-            logError(`apeInService() - ${e}`)
-        })
-}
-
 // Run!
 const run = () => {
     startServiceNotification()
@@ -536,8 +528,6 @@ const run = () => {
     BINANCE_TELEGRAM_GET_SYMBOLS_INTERVAL_ID = setInterval(() => {
         getSymbolsData()
     }, 1000 * 60 * Number(process.env.BINANCE_SYMBOL_UPDATE_INTERVAL_MINS)) // Every 10min update our symbols. In case of new listings.
-
-    apeInService()
 }
 
 run()
