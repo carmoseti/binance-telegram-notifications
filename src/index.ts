@@ -2,7 +2,7 @@ import {buySignalStrikeNotification, sendApeInNotification, startServiceNotifica
 import {tryCatchFinallyUtil} from "./utils/error";
 import axios, {AxiosResponse} from "axios";
 import {
-    BinanceSymbolsResponse, BinanceWebSocketTickerArrStreamResponse, BinanceWebSocketTradeStreamResponse,
+    BinanceSymbolsResponse, BinanceWebSocketTradeStreamResponse,
     BinanceTelegramSymbols,
     BinanceTelegramWebSocketConnections,
     BinanceTelegramTradingPairs
