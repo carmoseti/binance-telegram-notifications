@@ -1,18 +1,17 @@
 import {buySignalStrikeNotification, sendApeInNotification, startServiceNotification} from "./utils/telegram"
-import {tryCatchFinallyUtil} from "./utils/error";
-import axios, {AxiosResponse} from "axios";
+import {tryCatchFinallyUtil} from "./utils/error"
+import axios, {AxiosResponse} from "axios"
 import {
     BinanceSymbolsResponse, BinanceWebSocketTradeStreamResponse,
     BinanceTelegramSymbols,
     BinanceTelegramWebSocketConnections,
     BinanceTelegramTradingPairs
-} from "index";
-import {config} from "dotenv";
-import {logError} from "./utils/log";
-import {sleep} from "./utils/sleep";
-import WebSocket from "ws";
-import {fixDecimalPlaces} from "./utils/number";
-import Websocket from "ws";
+} from "index"
+import {config} from "dotenv"
+import {logError} from "./utils/log"
+import {sleep} from "./utils/sleep"
+import WebSocket from "ws"
+import {fixDecimalPlaces} from "./utils/number"
 
 config()
 
@@ -404,6 +403,8 @@ const openWebSocketConnection = (rgTradingPairs: [string, BinanceTelegramTrading
 
                     clearInterval(BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER[response.id]].tradeStreamSubscriptionAckInterval)
                     BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER[response.id]].tradeStreamSubscriptionAckInterval = undefined
+
+                    delete BINANCE_TELEGRAM_TRADE_STREAM_SUBSCRIPTIONS_TRACKER[response.id]
                 }
 
                 if (BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]) {
@@ -411,17 +412,22 @@ const openWebSocketConnection = (rgTradingPairs: [string, BinanceTelegramTrading
                     clearInterval(BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]].tradeStreamUnsubscriptionAckInterval)
                     BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]].tradeStreamUnsubscriptionAckInterval = undefined
 
-                    delete BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]]
+                    delete BINANCE_TELEGRAM_TRADE_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]
                 }
 
                 if (BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER[response.id]) {
                     clearInterval(BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER[response.id]].tickerStreamSubscriptionAckInterval)
                     BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER[response.id]].tickerStreamSubscriptionAckInterval = undefined
+
+                    delete BINANCE_TELEGRAM_TICKER_STREAM_SUBSCRIPTIONS_TRACKER[response.id]
                 }
 
                 if (BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]) {
                     clearInterval(BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]].tickerStreamUnsubscriptionAckInterval)
                     BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]].tickerStreamUnsubscriptionAckInterval = undefined
+
+                    delete BINANCE_TELEGRAM_TRADING_PAIRS[BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]]
+                    delete BINANCE_TELEGRAM_TICKER_STREAM_UNSUBSCRIPTIONS_TRACKER[response.id]
                 }
             }
             // Trades
