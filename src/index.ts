@@ -432,7 +432,6 @@ const openWebSocketConnection = (rgTradingPairs: [string, BinanceTelegramTrading
             }
             // Trades
             else {
-                console.log(JSON.stringify(response))
                 const tradingPair: BinanceTelegramTradingPairs[""] = (Object.entries(BINANCE_TELEGRAM_TRADING_PAIRS).filter(([_, v]) => v.symbol === response.data.s)[0] ?? [])[1]
                 if (tradingPair) {
                     const {baseCurrency, quoteCurrency} = tradingPair
@@ -476,7 +475,6 @@ const openWebSocketConnection = (rgTradingPairs: [string, BinanceTelegramTrading
                     if (response.data.e === "24hrTicker") {
                         // APE IN service
                         const percentChange: number = Math.round(((Number(response.data.c) - Number(response.data.h)) / Number(response.data.h)) * 10000) / 100
-                        /*console.log(`${response.data.s} => ${percentChange}`)*/
                         if ((percentChange < tradingPair.apeInPercentage)) {
                             // Send notification
                             sendApeInNotification(response.data.s, percentChange)
