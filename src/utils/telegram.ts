@@ -13,16 +13,15 @@ export const startServiceNotification = () => {
             headers: {
                 'Content-Type': 'application/json'
             }
-        }).catch((e) => {
+        }).catch(async (e) => {
             logError(`Telegram.startServiceNotification.axios() ${e}`)
-            sleep(1000)
+            await sleep(1000)
             startServiceNotification()
         })
-    },(e)=>{
+    },async (e) => {
         logError(`Telegram.startServiceNotification() ${e}`)
-        sleep(1000).then(() => {
-            startServiceNotification()
-        })
+        await sleep(1000)
+        startServiceNotification()
     })
 }
 
@@ -42,17 +41,15 @@ export const buySignalStrikeNotification = (symbol: string, price: number, strik
             headers: {
                 'Content-Type': 'application/json'
             }
-        }).catch((e) => {
+        }).catch(async (e) => {
             logError(`Telegram.buySignalStrikeNotification.axios() ${e}`)
-            sleep(1000).then(() => {
-                buySignalStrikeNotification(symbol, price, strikeCount, strikeUnitPCT, quoteAsset)
-            })
-        })
-    }, (e)=>{
-        logError(`Telegram.buySignalStrikeNotification() ${e}`)
-        sleep(1000).then(() => {
+            await sleep(1000)
             buySignalStrikeNotification(symbol, price, strikeCount, strikeUnitPCT, quoteAsset)
         })
+    }, async (e) => {
+        logError(`Telegram.buySignalStrikeNotification() ${e}`)
+        await sleep(1000)
+        buySignalStrikeNotification(symbol, price, strikeCount, strikeUnitPCT, quoteAsset)
     })
 }
 
@@ -66,15 +63,14 @@ export const sendApeInNotification = (symbol: string, percentageChange: number) 
             headers: {
                 'Content-Type': 'application/json'
             }
-        }).catch((e) => {
+        }).catch(async (e) => {
             logError(`Telegram.sendApeInNotification.axios() ${e}`)
-            sleep(1000)
+            await sleep(1000)
             sendApeInNotification(symbol, percentageChange)
         })
-    },(e)=>{
+    },async (e) => {
         logError(`Telegram.sendApeInNotification() ${e}`)
-        sleep(1000).then(() => {
-            sendApeInNotification(symbol, percentageChange)
-        })
+        await sleep(1000)
+        sendApeInNotification(symbol, percentageChange)
     })
 }
