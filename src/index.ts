@@ -302,6 +302,10 @@ const processTradingPairs = (newSubscribeSymbols ?: BinanceTelegramSymbols, unsu
     })
 }
 
+const getBaseAssetName = (tradingPair: string) => {
+    const regExp: RegExp = new RegExp(`^(\\w+)(` + process.env.BINANCE_QUOTE_ASSETS.replace(/,/g,"|") + `)$`)
+    return tradingPair.replace(regExp, '$1')
+}
 const openWebSocketConnection = (rgTradingPairs: [string, BinanceTelegramTradingPairs[""]][]) => {
     const webSocketConnectionId: string = `${new Date().getTime()}.${Math.random()}`
     tryCatchFinallyUtil(() => {
@@ -432,7 +436,7 @@ const openWebSocketConnection = (rgTradingPairs: [string, BinanceTelegramTrading
             }
             // Trades
             else {
-                const tradingPair: BinanceTelegramTradingPairs[""] = (Object.entries(BINANCE_TELEGRAM_TRADING_PAIRS).filter(([_, v]) => v.symbol === response.data.s)[0] ?? [])[1]
+                const tradingPair: BinanceTelegramTradingPairs[""] = BINANCE_TELEGRAM_TRADING_PAIRS[getBaseAssetName(response.data.s)]
                 if (tradingPair) {
                     const {baseCurrency, quoteCurrency} = tradingPair
                     if (response.data.e === "trade") {
